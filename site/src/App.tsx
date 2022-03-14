@@ -159,6 +159,8 @@ function App({
       setImages(
         resp.images.map((item) => ({
           original: item.url + "?downloadToken=" + resp.downloadToken,
+          originalWidth:1920,
+          originalHeight: 1080,
           thumbnail: item.thumbnailUrl + "?downloadToken=" + resp.downloadToken,
           originalTitle: item.name,
           thumbnailTitle: ""+item.timestamp
@@ -260,6 +262,7 @@ function App({
         slideDuration={0}
         slideInterval={speed}
         ref={galleryRef}
+        useTranslate3D={false}
         thumbnailPosition={"right"}
         showBullets={false}
       />
