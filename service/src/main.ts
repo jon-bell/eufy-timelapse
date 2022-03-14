@@ -253,7 +253,7 @@ class EufyFrameGrabber {
       await Promise.race([
         exec("ffmpeg", ["-y", "-i", url, "-vframes", "1", newImgPath]),
         new Promise((_resolve, reject) =>
-          setTimeout(() => reject(), 1000 * 30)
+          setTimeout(() => reject(), 1000 * 60)
         ),
       ]); //30 second timeout to try again
       if (!(await this.isValidFrame(newImgPath))) {

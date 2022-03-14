@@ -19,6 +19,7 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import moment from "moment-timezone";
+import { stat } from "fs";
 
 function Login() {
   const [token, setToken] = useState<string>(
@@ -218,6 +219,7 @@ function App({
             <Flex>
               <Box padding="4">
                 <Heading as={'h2'}>{status?.siteName}</Heading>
+                Battery: {status?.batteryValue.value}%
                 </Box>
               <Box flexGrow={"100"}></Box>
               <Box padding="4">
