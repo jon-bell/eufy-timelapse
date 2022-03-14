@@ -191,8 +191,7 @@ class EufyFrameGrabber {
         "-pix_fmt",
         "yuv420p",
         outputName,
-      ],
-      { cwd: process.env.DATA_DIR }
+      ]
     );
     return outputName;
   }
