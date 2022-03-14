@@ -150,10 +150,10 @@ class EufyFrameGrabber {
         "Content-Length": size,
       });
       let frstream = _fs.createReadStream(videoPath);
-      frstream.on("end", () => {
+      frstream.pipe(res);
+      frstream.on("close", () => {
         fs.unlink(videoPath);
       });
-      frstream.pipe(res);
     });
     this.app.get("/captcha/:solution", async (req, res) => {
       const captchaSolution = decodeURIComponent(req.params.solution);
