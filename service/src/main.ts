@@ -60,10 +60,12 @@ class EufyFrameGrabber {
         await EufyFrameGrabber.createThumb(img);
       }
     });
+    const interval = parseInt(process.env.FRAME_GRAB_INTERVAL_MIN || "10") * 60 * 1000;
+    console.log(`Setting up interval timer to run every ${interval}msec`);
 
     setInterval(
-      () => this.connectAndRun,
-      parseInt(process.env.FRAME_GRAB_INTERVAL_MIN || "10") * 60 * 1000
+      () => this.connectAndRun(),
+      interval
     );
   }
   private static async createThumb(img: string) {
