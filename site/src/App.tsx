@@ -132,7 +132,7 @@ function App({
 }) {
   const [status, setStatus] = useState<StatusResponse>();
   const [images, setImages] = useState<ReactImageGalleryItem[]>([]);
-  const [speed, setSpeed] = useState<number>(100);
+  const [speed, setSpeed] = useState<number>(parseInt(window.localStorage.getItem('speed') || '100'));
   const [downloadToken, setDownloadToken] = useState<string>();
   const galleryRef = useRef<ImageGallery>(null);
 
@@ -227,6 +227,7 @@ function App({
                   Speed:{" "}
                   <select
                     onChange={(ev) => {
+                      window.localStorage.setItem('speed', ev.target.value);
                       setSpeed(parseInt(ev.target.value));
                     }}
                   >
