@@ -1,5 +1,10 @@
 import "dotenv/config";
-import { Camera, EufySecurity, EufySecurityConfig, PropertyValue } from "eufy-security-client";
+import {
+  Camera,
+  EufySecurity,
+  EufySecurityConfig,
+  PropertyValue,
+} from "eufy-security-client";
 import { exec } from "@actions/exec";
 import fs from "fs/promises";
 import _fs from "fs";
@@ -24,7 +29,6 @@ class EufyFrameGrabber {
   private sessions: string[] = [];
   private siteName?: string;
   private batteryValue?: PropertyValue;
-  
 
   constructor() {
     this.app = express();
@@ -60,13 +64,11 @@ class EufyFrameGrabber {
         await EufyFrameGrabber.createThumb(img);
       }
     });
-    const interval = parseInt(process.env.FRAME_GRAB_INTERVAL_MIN || "10") * 60 * 1000;
+    const interval =
+      parseInt(process.env.FRAME_GRAB_INTERVAL_MIN || "10") * 60 * 1000;
     console.log(`Setting up interval timer to run every ${interval}msec`);
 
-    setInterval(
-      () => this.connectAndRun(),
-      interval
-    );
+    setInterval(() => this.connectAndRun(), interval);
   }
   private static async createThumb(img: string) {
     const thumb = await thumbnail(`${IMG_DIR}/${img}`, {
@@ -78,15 +80,19 @@ class EufyFrameGrabber {
   }
 
   private configureExpress() {
-    this.app.use(CORS({origin: "*"}));
-    const checkLogin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-      if(req.path == "/login")
-        return next();
+    this.app.use(CORS({ origin: "*" }));
+    const checkLogin = (
+      req: express.Request,
+      res: express.Response,
+      next: express.NextFunction
+    ) => {
+      if (req.path == "/login") return next();
       const token = req.headers.authorization;
       const tokenParam = req.query.downloadToken as string;
-      if ((!token || !this.sessions.includes(token))
-      && (!tokenParam || !this.sessions.includes(tokenParam)))
-      {
+      if (
+        (!token || !this.sessions.includes(token)) &&
+        (!tokenParam || !this.sessions.includes(tokenParam))
+      ) {
         return res.status(403).send();
       }
       return next();
@@ -116,22 +122,22 @@ class EufyFrameGrabber {
     this.app.use(checkLogin);
     this.app.post("/logout", (req, res) => {
       const token = req.headers.authorization;
-      this.sessions = this.sessions.filter(session => session !== token);
+      this.sessions = this.sessions.filter((session) => session !== token);
       res.status(200).send();
     });
     this.app.get("/images", (_req, res) => {
       const token = nanoid(32);
-      setTimeout(()=>{
-        this.sessions = this.sessions.filter(session => session !== token);
-      }, 1000*60*60*6);
+      setTimeout(() => {
+        this.sessions = this.sessions.filter((session) => session !== token);
+      }, 1000 * 60 * 60 * 6);
       this.sessions.push(token);
       res.json({ images: this.frames, downloadToken: token });
     });
-    this.app.get("/imageToken", (_req, res)=>{
+    this.app.get("/imageToken", (_req, res) => {
       const token = nanoid(32);
-      setTimeout(()=>{
-        this.sessions = this.sessions.filter(session => session !== token);
-      }, 1000*60*60*6);
+      setTimeout(() => {
+        this.sessions = this.sessions.filter((session) => session !== token);
+      }, 1000 * 60 * 60 * 6);
       this.sessions.push(token);
       res.json({ downloadToken: token });
     });
@@ -140,7 +146,7 @@ class EufyFrameGrabber {
         isConnected: this.client.isConnected(),
         captchaRequested: this.captchaRequest,
         siteName: this.siteName,
-        batteryValue: this.batteryValue
+        batteryValue: this.batteryValue,
       });
     });
     this.app.get("/video/:token/:fps?", async (req, res) => {
@@ -179,22 +185,19 @@ class EufyFrameGrabber {
 
   private async generateVideo(fps: number = 1): Promise<string> {
     const outputName = `timelapse_${Date.now()}.mp4`;
-    await exec(
-      "ffmpeg",
-      [
-        "-framerate",
-        `${fps}`,
-        "-pattern_type",
-        "glob",
-        "-i",
-        `${IMG_DIR}16*.jpg`,
-        "-vcodec",
-        "libx264",
-        "-pix_fmt",
-        "yuv420p",
-        outputName,
-      ]
-    );
+    await exec("ffmpeg", [
+      "-framerate",
+      `${fps}`,
+      "-pattern_type",
+      "glob",
+      "-i",
+      `${IMG_DIR}16*.jpg`,
+      "-vcodec",
+      "libx264",
+      "-pix_fmt",
+      "yuv420p",
+      outputName,
+    ]);
     return outputName;
   }
   private onCaptchaRequest(id: string, captcha: string) {
@@ -252,13 +255,17 @@ class EufyFrameGrabber {
     };
 
     try {
-      await Promise.race([
-        exec("ffmpeg", ["-y", "-i", url, "-vframes", "1", newImgPath]),
-        new Promise((_resolve, reject) =>
-          setTimeout(() => reject(), 1000 * 60)
-        ),
-      ]); //30 second timeout to try again
-      if (!(await this.isValidFrame(newImgPath))) {
+      await exec("timeout", [
+        "1m",
+        "ffmpeg",
+        "-y",
+        "-i",
+        url,
+        "-vframes",
+        "1",
+        newImgPath,
+      ]);
+      if (!(await EufyFrameGrabber.isValidFrame(newImgPath))) {
         await deleteImg();
         await this.fetchFrameWithRetry(url, retriesRemaining - 1);
       } else {
@@ -271,11 +278,9 @@ class EufyFrameGrabber {
       await this.fetchFrameWithRetry(url, retriesRemaining - 1);
     }
   }
-  public async isValidFrame(path: string) {
+  public static async isValidFrame(path: string) {
     try {
       const color = await getAverageColor(path);
-      console.log("Color received:");
-      console.log(color);
       if (color.value.every((v) => v > 250)) return false;
       return true;
     } catch (err) {
@@ -294,5 +299,22 @@ class EufyFrameGrabber {
   }
 }
 
-const frameGrabber = new EufyFrameGrabber();
-frameGrabber.connectAndRun();
+async function cleanupImagesAndStart() {
+  const frames = _fs
+  .readdirSync(IMG_DIR)
+  .filter((file) => file.endsWith(".jpg") && !file.includes("thumb"));
+  await Promise.all(
+    frames.map(async (img) => {
+      const imgFileName = `${IMG_DIR}/${img}`;
+      const thumbFileName = `${IMG_DIR}thumb_${img}`;
+      if (!(await EufyFrameGrabber.isValidFrame(imgFileName))) {
+        console.log(`Deleting invalid frame ${imgFileName}`);
+        await fs.unlink(imgFileName).catch();
+        await fs.unlink(thumbFileName).catch();
+      }
+    })
+  );
+  const frameGrabber = new EufyFrameGrabber();
+  frameGrabber.connectAndRun();
+}
+cleanupImagesAndStart();
