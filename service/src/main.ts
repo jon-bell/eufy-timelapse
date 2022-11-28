@@ -19,7 +19,7 @@ import { nanoid } from "nanoid";
 
 const IMG_DIR = process.env.DATA_DIR + "images/" || "images/";
 class EufyFrameGrabber {
-  private client: EufySecurity;
+  private client: Promise<EufySecurity>;
   private device?: Camera;
   private app;
   private captchaRequest?: string;
@@ -43,15 +43,17 @@ class EufyFrameGrabber {
       pollingIntervalMinutes: 10,
     };
     const ignore = (_args: any) => {};
-    this.client = new EufySecurity(config, {
+    this.client = EufySecurity.initialize(config, {
       debug: ignore,
       trace: ignore,
       info: ignore,
       error: console.error,
       warn: console.error,
     });
-    this.client.on("captcha request", (id: string, captcha: string) => {
-      this.onCaptchaRequest(id, captcha);
+    this.client.then(client => {
+      client.on("captcha request", (id: string, captcha: string) => {
+        this.onCaptchaRequest(id, captcha);
+      });
     });
     this.frames = _fs
       .readdirSync(IMG_DIR)
@@ -141,12 +143,18 @@ class EufyFrameGrabber {
       this.sessions.push(token);
       res.json({ downloadToken: token });
     });
-    this.app.get("/status", (_req, res) => {
+    this.app.get("/status", async (_req, res) => {
+      let lastFrame = -1;
+      if(this.frames.length > 1){
+        const str = this.frames[this.frames.length];
+        lastFrame = Number.parseInt(str.substring(0,str.length - 3));
+      }
       res.json({
-        isConnected: this.client.isConnected(),
+        isConnected: (await this.client).isConnected(),
         captchaRequested: this.captchaRequest,
         siteName: this.siteName,
         batteryValue: this.batteryValue,
+        lastFrame: lastFrame
       });
     });
     this.app.get("/video/:token/:fps?", async (req, res) => {
@@ -168,7 +176,7 @@ class EufyFrameGrabber {
       this.captchaSolution = captchaSolution;
       await this.connectAndRun();
       res.json({
-        isConnected: this.client.isConnected(),
+        isConnected: (await this.client).isConnected(),
         captchaRequested: this.captchaRequest,
       });
     });
@@ -207,38 +215,37 @@ class EufyFrameGrabber {
   }
 
   public async connect() {
-    let connection;
+    const client = await this.client;
     this.captchaRequest = undefined;
-    if (this.captchaSolution) {
+    if (this.captchaSolution && this.captchaID) {
       const captchaSolution = this.captchaSolution;
       const captchaID = this.captchaID;
       this.captchaSolution = undefined;
       this.captchaID = undefined;
       console.log(`passing captcha solution ${captchaSolution}`);
-      connection = await this.client.connect(captchaSolution, captchaID);
+      await client.connect({captcha: {captchaCode: captchaSolution, captchaId: captchaID}, force: false});
     } else {
-      connection = await this.client.connect();
+      await client.connect();
     }
-    console.log(`Connect result: ${connection}`);
-    if (!connection) throw new Error("Unable to connect to Eufy Service");
-    await this.client.refreshCloudData();
+    await client.refreshCloudData();
   }
   public async connectAndRun() {
     try {
       await this.connect();
       const stationSN = process.env.EUFY_STATION_SN;
+      const client = await this.client;
 
       if (!stationSN)
         throw new Error(
           "No station serial number specified; retrieve from app by going to the device, then settings, then about device, then copy the Serial Number."
         );
 
-      this.device = this.client.getDevice(stationSN) as Camera;
+      this.device = (await client.getDevice(stationSN)) as Camera;
       console.log(this.device.getProperties());
       this.batteryValue = this.device.getBatteryValue();
       this.siteName = this.device.getName();
       await this.grabFrame();
-      this.client.close();
+      client.close();
     } catch (err) {
       console.trace(err);
     }
