@@ -108,6 +108,8 @@ class EufyFrameGrabber {
       const matchingUserID = usernames
         .find((authorizedName) => process.env[authorizedName] === username)
         ?.replace("AUTHORIZED_USERNAME_", "");
+      console.log(matchingUserID);
+      console.log(username);
       if (
         matchingUserID &&
         process.env[`AUTHORIZED_PASSWORD_${matchingUserID}`] === password
